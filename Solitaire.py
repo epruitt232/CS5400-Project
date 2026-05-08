@@ -1,259 +1,468 @@
 """
 solitaire.py
-===============
+============
 Formal Game Layer
-
-Implements the Following:
-  - __init__(self)      : Initialize
 """
 from deck_of_cards import deck_of_cards
 
-#=================================================
-#CARD CLASS       -> Represents a card
-
-
-
+#===================
 class Card:
     """
-    Card object
+    Card Object
     Attributes:
-        *suit: The suit of the card 0(spades), 1(hearts), 2(diamonds), 3(clubs)
-        *rank: The rank of the card 1(A), 2(2), ..., 11(J), 12(Q), 13(K)
-        *name: The display name of the card 01(" SA"), 110("H10"), 313(" CK")
-        *color: The color of the card 0(black) 1(red)
-        *visible: Whether the card displays as visible(1 -> "???") or hidden(1 -> "C10")
+        - suit:    The suit of the card 0(spades), 1(hearts), 2(diamonds), 3(clubs)
+        - rank:    The rank of the card 1(A), 2(2), ..., 11(J), 12(Q), 13(K)
+        - name:    The display name of the card 01(' SA'), 110('H10')
+        - color:   The color of the card 0(black), 1(red)
+        - visible: If the card is visible(1 -> 'C10') or hidden(0 -> '???')
     """
-    def __init__(self, rank, suit, name, color, visible):
-        self.rank = rank
+    def __init__(self, suit, rank, name, color, visible):
         self.suit = suit
+        self.rank = rank
         self.name = name
         self.color = color
         self.visible = visible
-    
-    
+    #----------------------------------------------------
+
     def from_card(card, visible):
-        rank = card.rank
-        suit = card.suit
+        """
+        Builds a card from a deck_of_cards card object
+        """
         match card.suit:
-            case 0:
-                cardName = "S"
+            case 0: #spades
+                suit = 0
+                cardName = 'S'
                 color = 0
-            case 1:
-                cardName = "H"
+            case 1: #hearts
+                suit = 1
+                cardName = 'H'
                 color = 1
-            case 2:
-                cardName = "D"
+            case 2: #diamonds
+                suit = 2
+                cardName = 'D'
                 color = 1
-            case 3:
-                cardName = "C"
+            case 3: #clubs
+                suit = 3
+                cardName = 'C'
                 color = 0
         match card.rank:
             case 1:
-                cardName += "A"
+                rank = 1
+                cardName += 'A'
             case 11:
-                cardName += "J"
+                rank = 11
+                cardName += 'J'
             case 12:
-                cardName += "Q"
+                rank = 12
+                cardName += 'Q'
             case 13:
-                cardName += "K"
+                rank = 13
+                cardName += 'K'
             case _:
+                rank = card.rank
                 cardName += str(card.rank)
-        name = cardName
-        return Card(rank, suit, name, color, visible)
+        return Card(suit, rank, cardName, color, visible)
+    #----------------------------
 
-    def from_string(cardStr, visible):
-        #sets the name
+    def from_str(cardStr, visible):
+        """
+        Builds a card from a string
+        """
         name = cardStr
-        #sets the suit and color
         match cardStr[0]:
-            case "S":
+            case 'S':
                 suit = 0
                 color = 0
-            case "H":
+            case 'H':
                 suit = 1
                 color = 1
-            case "D":
+            case 'D':
                 suit = 2
                 color = 1
-            case "C":
+            case 'C':
                 suit = 3
                 color = 0
-        #sets the rank
-        cardStr = cardStr[1:]
-        match cardStr:
-            case "A":
+        match cardStr[1:]:
+            case 'A':
                 rank = 1
-            case "J":
+            case 'J':
                 rank = 11
-            case "Q":
+            case 'Q':
                 rank = 12
-            case "K":
+            case 'K':
                 rank = 13
             case _:
-                rank = int(cardStr)
-        return Card(rank, suit, name, color, visible)
-    
+                rank = int(cardStr[1:])
+        return Card(suit, rank, name, color, visible)
+    #------------------------------
+#===================
 
-def Board(load):
+#===================
+class GameState:
     """
-    initializes the board
-    Parameters:
-    * load  : whether to load the last game from file or generate a new one
-    Returns   : the initialized board
+    State of the game
+    Attributes:
+        - board - the current board state
+        - score - the current score
     """
-    #        0   1   2   3   4   5   6    stock S    H  D   C
-    #        0   1   2   3   4   5   6    7     8    9  10  11
-    board= [ [], [], [], [], [], [], [], [],    [], [], [], [] ]
-
-    #generate a new puzzle
-    if not load:
-        cardBox = deck_of_cards.DeckOfCards()
-        cardBox.shuffle_deck()
-        card = None
-        numCards = 1
-        for stack in range(0, len(board)):
-            #makes game stacks
-            if stack < 7:
-                for i in range(0, numCards):
-                    #make the last card in the stack visible
-                    if i == numCards -1:
+    def __init__(self, load):
+        """
+        Initializes the state
+        Parameters:
+            - load: If True, loads the last game from file. If False, generates a new one
+        """
+        self.score = 0
+        #        b1  b2  b3  b4  b5  b5  b6  stock FS  FH  FD  FC
+        #        0   1   2   3   4   5   6   7     8   9   10  11
+        self.board = [[], [], [], [], [], [], [], [],   [], [], [], []]
+        #generate a new board
+        if not load:
+            cardBox = deck_of_cards.DeckOfCards()
+            cardBox.shuffle_deck()
+            card = None
+            numCards = 1
+            for i in range(0, len(self.board)):
+                #make table
+                if i < 7:
+                    for j in range(0, numCards):
+                        if j == numCards - 1:
+                            card = cardBox.give_random_card()
+                            self.board[i].append(Card.from_card(card, True))
+                        else:
+                            card = cardBox.give_random_card()
+                            self.board[i].append(Card.from_card(card, False))
+                #make stock
+                elif i == 7:
+                    for j in range(0, len(cardBox.deck)):
                         card = cardBox.give_random_card()
-                        board[stack].append(Card.from_card(card, True))
-                    else:
-                        card = cardBox.give_random_card()
-                        board[stack].append(Card.from_card(card, False))
-            #puts the remaining cards into the stock
-            elif stack == 7:
-                for i in range(0, len(cardBox.deck)):
-                    card = cardBox.give_random_card()
-                    board[stack].append(Card.from_card(card, True))
-            numCards += 1
-        #outputs the generated puzzle to text file
-        with open("lastPuzzle.txt", "w") as f:
-            for i in range(0, len(board)):
-                for j in range(0, len(board[i])):
-                    if j == len(board[i]) - 1:
-                        print(board[i][j].name, file=f)
-                    else:
-                        print(board[i][j].name, file=f)
-    #loads the last puzzle saved
-    elif load:
-        cardList = []
-        with open("lastPuzzle.txt", "r") as f:
-            inputList = f.readlines()
-            for line in inputList:
-                cardList.append(line.strip())
-        card = ""
-        numCards = 1
-        listIterator = 0
-        for stack in range(0, len(board)):
-            #makes game stacks
-            if stack < 7:
-                for i in range(0, numCards):
-                    #make the last card in the stack visible
-                    if i == numCards -1:
-                        board[stack].append(Card.from_string(cardList[listIterator], True))
-                    else:
-                        board[stack].append(Card.from_string(cardList[listIterator], False))
-                    listIterator += 1
-            #puts the remaining cards into the stock
-            elif stack == 7:
-                for i in range(listIterator, len(cardList)):
-                    #board[stack].append(Card(cardList[listIterator], True))
-                    board[stack].insert(0, Card.from_string(cardList[listIterator], True))
-                    listIterator += 1
-            numCards += 1
+                        self.board[i].append(Card.from_card(card, True))
+                numCards += 1
+            #outputs to text file
+            with open('savedBoard.txt', 'w') as f:
+                for i in range(0, len(self.board)):
+                    for j in range(0, len(self.board[i])):
+                        print(self.board[i][j].name, file=f)
+        #load saved game
+        elif load:
+            #removes the empty string from every line
+            cardList = []
+            with open('savedBoard.txt', 'r') as f:
+                inputList = f.readlines()
+                for line in inputList:
+                    cardList.append(line.strip())
+            card = ''
+            numCards = 1
+            listIterator = 0
+            for i in range(0, len(self.board)):
+                #make table
+                if i < 7:
+                    for j in range(0, numCards):
+                        if j == numCards - 1:
+                            self.board[i].append(Card.from_str(cardList[listIterator], True))
+                        else:
+                            self.board[i].append(Card.from_str(cardList[listIterator], False))
+                        listIterator += 1
+                #make stock
+                elif i == 7:
+                    for j in range(listIterator, len(cardList)):
+                        self.board[i].insert(0, Card.from_str(cardList[listIterator], True))
+                        listIterator += 1
+                numCards += 1
+    #------------------------
 
-    #return the board
-    return board
+    def copyState(self):
+        #creates the new state
+        newState = GameState(True)
+        #copies the score
+        newState.score = self.score
+        #copies the board
+        for i in range(0, len(self.board)):
+            newState.board[i].clear()
+            for j in range(0, len(self.board[i])):
+                newState.board[i].append(self.board[i][j])
+        return newState
+    #--------------------
 
-def legal_moves(board):
-    """
-    Returns a list of legal moves for the current board
-    """
-    legalMoves = []
-    
-    for i in range(0, len(board)):
-        if 8 <= i <= 11:
-            continue
-
-        if len(board[i]) > 0:
-            currCard = board[i][len(board[i]) - 1]
+    def legal_moves(self):
+        def isValid(card, k):
+            if len(self.board[k]) > 0:
+                #table rules (rank must be 1 above, color must be different)
+                if k < 7:
+                    if card.rank + 1 == self.board[k][len(self.board[k]) - 1].rank:
+                        if card.color != self.board[k][len(self.board[k]) - 1].color:
+                            return True
+                #stock rules (cannot place a card on the stock)
+                elif k == 7:
+                    return False
+                #foundation rules (rank must be 1 lower, suit must be the same)
+                elif k > 7:
+                    if card.rank - 1 == self.board[k][len(self.board[k]) - 1].rank:
+                        if card.suit == self.board[k][len(self.board[k]) - 1].suit:
+                            return True
+            else:
+                return False
+        #--------------------
+        legalMoves = []
+        
+        #TABLE
+        for i in range(0, 7):
+            for j in range(0, len(self.board[i])):
+                if self.board[i][j].visible == 1:
+                    currCard = self.board[i][j]
+                    match currCard.rank:
+                        #ACE
+                        case 1:
+                            for k in range(0, len(self.board)):
+                                #TABLE
+                                if k < 7:
+                                    if isValid(currCard, k):
+                                        legalMoves.append(((i, j), (k, len(self.board[k]))))
+                                #EMPTY FOUNDATION
+                                if k > 7 and len(self.board[k]) == 0:
+                                    if k == 8 and currCard.suit == 0:
+                                        legalMoves.append(((i, j), (k, 0)))
+                                    elif k == 9 and currCard.suit == 1:
+                                        legalMoves.append(((i, j), (k, 0)))
+                                    elif k == 10 and currCard.suit == 2:
+                                        legalMoves.append(((i, j), (k, 0)))
+                                    elif k == 11 and currCard.suit == 3:
+                                        legalMoves.append(((i, j), (k, 0)))
+                        #KING
+                        case 13:
+                            for k in range(0, len(self.board)):
+                                #EMPTY TABLE
+                                if k < 7 and len(self.board[k]) == 0:
+                                    legalMoves.append(((i, j), (k, 0)))
+                                #FULL FOUNDATION
+                                elif k > 7:
+                                    if isValid(currCard, k):
+                                        legalMoves.append(((i, j), (k, len(self.board[k]))))
+                        #GENERAL
+                        case _:
+                            for k in range(0, len(self.board)):
+                                #TABLE
+                                if k < 7:
+                                    if isValid(currCard, k):
+                                        legalMoves.append(((i, j), (k, len(self.board[k]))))
+                                #FOUNDATION
+                                elif k > 7:
+                                    if j == len(self.board[i]) - 1 and isValid(currCard, k):
+                                        legalMoves.append(((i, j), (k, len(self.board[k]))))
+        #FOUNDATION
+        for i in range(8, 12):
+            if len(self.board[i]) > 0:
+                currCard = self.board[i][len(self.board[i]) - 1]
+                match currCard.rank:
+                    #ACE
+                    case 1:
+                        for k in range(0, 7):
+                            #TABLE
+                            if len(self.board[k]) > 0:
+                                if isValid(currCard, k):
+                                    legalMoves.append(((i, len(self.board[i]) - 1), (k, len(self.board[k]))))
+                    #KING
+                    case 13:
+                        for k in range(0, 7):
+                            if len(self.board[k]) == 0:
+                                if isValid(currCard, k):
+                                    legalMoves.append(((i, len(self.board[i]) - 1), (k, 0)))
+                    #GENERAL
+                    case _:
+                        for k in range(0, 7):
+                            if len(self.board[k]) > 0:
+                                if isValid(currCard, k):
+                                    legalMoves.append(((i, len(self.board[i]) - 1), (k, len(self.board[k]))))
+        #STOCK
+        if len(self.board[7]) > 0:
+            currCard = self.board[7][len(self.board[7]) - 1]
             match currCard.rank:
                 #ACE
                 case 1:
-                    #adds the foundation move
-                    match currCard.suit:
-                        case 0:
-                            if i != 8:
-                                legalMoves.append(((i, len(board[i]) - 1), (8, 0)))
-                        case 1:
-                            if i != 9:
-                                legalMoves.append(((i, len(board[i]) - 1), (9, 0)))
-                        case 2:
-                            if i != 10:
-                                legalMoves.append(((i, len(board[i]) - 1), (10, 0)))
-                        case 3:
-                            if i != 11:
-                                legalMoves.append(((i, len(board[i]) - 1), (11, 0)))
-                    #adds general moves
-                    for j in range(0, len(board)):
-                        if len(board[j]) > 0:
-                            if currCard.rank + 1 == board[j][len(board[j]) - 1].rank:
-                                if currCard.color != board[j][len(board[j]) - 1].color:
-                                    legalMoves.append(((i, len(board[i]) - 1), (j, len(board[j]) - 1)))
+                    for k in range(0, len(self.board)):
+                        #TABLE
+                        if k < 7:
+                            if isValid(currCard, k):
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, len(self.board[k]))))
+                        #EMPTY FOUNDATION
+                        if k > 7 and len(self.board[k]) == 0:
+                            if k == 8 and currCard.suit == 0:
+                                legalMoves.append(((7, len(self.board[7]) -1), (k, 0)))
+                            elif k == 9 and currCard.suit == 1:
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, 0)))
+                            elif k == 10 and currCard.suit == 2:
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, 0)))
+                            elif k == 11 and currCard.suit == 3:
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, 0)))
                 #KING
                 case 13:
-                    #add empty stack
-                    for j in range(0, 7):
-                        if len(board[j]) == 0:
-                            legalMoves.append(((i, len(board[i]) - 1), (j, len(board[j]))))
-                    #add foundations
-                    
-                #general
+                    for k in range(0, len(self.board)):
+                        #EMPTY TABLE
+                        if k < 7 and len(self.board[k]) == 0:
+                            legalMoves.append(((7, len(self.board[7]) - 1), (k, 0)))
+                        #FULL FOUNDATION
+                        elif k > 7:
+                            if isValid(currCard, k):
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, len(self.board[k]))))
+                #GENERAL
                 case _:
-                    for j in range(0, 7):
-                        if len(board[j]) > 0:
-                            if currCard.rank + 1 == board[j][len(board[j]) - 1].rank:
-                                if currCard.color != board[j][len(board[j]) - 1].color:
-                                    legalMoves.append(((i, len(board[i]) - 1), (j, len(board[j]))))
-    if len(board[7]) > 2:
-        legalMoves.append(((7, len(board[7]) - 1), (7, 0)))
+                    for k in range(0, len(self.board)):
+                        #TABLE
+                        if k < 7:
+                            if isValid(currCard, k):
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, len(self.board[k]))))
+                        #FOUNDATION
+                        elif k > 7:
+                            if isValid(currCard, k):
+                                legalMoves.append(((7, len(self.board[7]) - 1), (k, len(self.board[k]))))
+            #FLIP
+            if len(self.board[7]) > 1:
+                legalMoves.append(((7, len(self.board[7]) - 1), (7, 0)))
+            
+        return legalMoves
+    #----------------
 
+    def push(self, action):
+        """
+        Applies the action to the board and updates the score
+        """
+        srcLoc = action[0]
+        dstLoc = action[1]
 
-    return legalMoves
+        #FLIP FOUNDATION
+        if dstLoc[0] == 7:
+            self.board[7].insert(0, self.board[7][len(self.board[7]) - 1])
+            self.board[7].pop()
+        #TO TABLE
+        elif dstLoc[0] < 7:
+            #FROM TABLE
+            if srcLoc[0] < 7:
+                #Last card?
+                if srcLoc[1] == len(self.board[srcLoc[0]]) - 1:
+                    #hidden card underneath?
+                    if len(self.board[srcLoc[0]]) > 1 and self.board[srcLoc[0]][srcLoc[1] -1].visible == 0:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]][srcLoc[1] - 1].visible = True
+                        self.score += 5
+                    else:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                #Middle Card
+                else:
+                    #hidden card underneath?
+                    if len(self.board[srcLoc[0]]) > 1 and self.board[srcLoc[0]][srcLoc[1] -1].visible == 0:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]][srcLoc[1] - 1].visible = True
+                        self.score += 5
+                    else:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                    #move the rest of the cards in the stack
+                    for i in range(srcLoc[1], len(self.board[srcLoc[0]])):
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+            #FROM STOCK
+            elif srcLoc[0] == 7:
+                self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                self.score += 5
+            #FROM FOUNDATION
+            elif srcLoc[0] > 7:
+                self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                self.score -= 10
+        #TO FOUNDATION
+        elif dstLoc[0] > 7:
+            #FROM TABLE
+            if srcLoc[0] < 7:
+                #Last card?
+                if srcLoc[1] == len(self.board[srcLoc[0]]) - 1:
+                    #hidden card underneath?
+                    if len(self.board[srcLoc[0]]) > 1 and self.board[srcLoc[0]][srcLoc[1] -1].visible == 0:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]][srcLoc[1] - 1].visible = True
+                        self.score += 15
+                    else:
+                        self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                        self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                        self.score += 10
+            elif srcLoc[0] == 7:
+                self.board[dstLoc[0]].append(self.board[srcLoc[0]][srcLoc[1]])
+                self.board[srcLoc[0]].remove(self.board[srcLoc[0]][srcLoc[1]])
+                self.score += 10
+    #-----------------------
 
-def apply(board, move):
-    """
-    Applies the move to the board
-        - move is of form ((source col, source row), (destination col, destination row))
-    """
-    l = []
-    
+    def is_game_over(self):
+        """
+        Checks if the game has been ended
+        """
+        currLM = self.legal_moves()
+        moveCounter = 0
+        #count the number of king swaps in the current moves
+        for move in currLM:
+            if move[0][1] == move[1][1]:
+                moveCounter += 1
+        #count the number of other card swaps in the current moves
+        
 
+        #if there are no cards in the stock and all moves are swaps there is no progression
+        if len(self.board[7]) == 0 and moveCounter == len(currLM):
+            return True
+        #there are cards left in the stock and all moves are swaps
+        elif len(self.board[7]) > 0 and moveCounter == len(currLM) - 1:
+            #swaps the stock
+            nextState = self.copyState()
+            #go through every card in the stock and see if there will be more moves in the future
+            for i in range(0, len(nextState.board[7])):
+                #performs the stock flip
+                nextState.push(currLM[len(currLM) - 1])
+                #if the new stock card has more moves than the current then it offers a solution
+                nextLM = nextState.legal_moves()
+                if len(nextLM) > len(currLM):
+                    return False
+            #if no next card offers a solution there are no logical moves left
+            return True
 
-    #flip the stock
-    if move[0][0] == 7 and move[1][0] == 7:
-        board[7].insert(0, board[7][len(board[7]) - 1])
-    else:
-        #move the card
-        board[move[1][0]].append(board[move[0][0]][move[0][1]])
-        board[move[0][0]].remove(board[move[0][0]][move[0][1]])
+            raise NotImplementedError("check next moves")
+    #-----------------------
+#===================
 
-        if len(board[move[0][0]]) > 0:
-            board[move[0][0]][len(board[move[0][0]]) - 1].visible = True
-    
-    
+"""
+for i in range(0, len(self.board)):
+    for j in range(0, len(self.board[i])):
+        if j == len(self.board[i]) - 1:
+            print(self.board[i][j].name)
+        else:
+            print(self.board[i][j].name, end = ' ')
+"""
 
-    return board
+"""
+#count the number of king swaps in the current moves
+        for move in currLM:
+            if move[0][1] == move[1][1]:
+                moveCounter += 1
+        #count the number of other card swaps in the current moves
+        
 
+        #if there are no cards in the stock and all moves are swaps there is no progression
+        if len(self.board[7]) == 0 and moveCounter == len(currLM):
+            return True
+        #there are cards left in the stock and all moves are swaps
+        elif len(self.board[7]) > 0 and moveCounter == len(currLM) - 1:
+            #swaps the stock
+            nextState = self.copyState()
+            #go through every card in the stock and see if there will be more moves in the future
+            for i in range(0, len(nextState.board[7])):
+                #performs the stock flip
+                nextState.push(currLM[len(currLM) - 1])
+                #if the new stock card has more moves than the current then it offers a solution
+                nextLM = nextState.legal_moves()
+                if len(nextLM) > len(currLM):
+                    return False
+            #if no next card offers a solution there are no logical moves left
+            return True
 
-def is_game_over(board):
-    """
-    Checks if the game has been ended or no moves remain
-    """
-    if legal_moves(board) == 0:
-        return True
-    
-
-    return False
+            raise NotImplementedError("check next moves")
+"""
